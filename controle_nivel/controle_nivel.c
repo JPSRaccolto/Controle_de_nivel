@@ -24,6 +24,7 @@
 #define AZUL 12
 #define VERDE 11
 #define VERMELHO 13
+#define RELE 16
 #define PWM_WRAP 4095
 #define PWM_CLK_DIV 30.52f
 #define I2C_PORT i2c1
@@ -36,11 +37,17 @@
 #define NUM_PIXELS 25
 #define WS2812_PIN 7
 #define DEADZONE 170
- #define ADC_PIN 28 // GPIO para o voltímetro
+#define ADC_PIN 28 // GPIO para o voltímetro
 int R_conhecido = 10000;   // Resistor de 10k ohm
 float R_x = 0.0;           // Resistor desconhecido
+float T_x = 0.0;           // Tensão no potenciômetro
+float T_xanterior = 0.0;   // Valor passado da tensão no potenciômetro
 float ADC_VREF = 3.31;     // Tensão de referência do ADC
 int ADC_RESOLUTION = 4095; // Resolução do ADC (12 bits)
+float limite_min = 1.75;
+float limite_max = 2.2;
+static volatile uint32_t ultimo_tempo = 0;
+bool bomba = false;
 ssd1306_t ssd;
 static inline void put_pixel(uint32_t pixel_grb)
 {
@@ -54,40 +61,13 @@ static inline uint32_t urgb_u32(uint8_t r, uint8_t g, uint8_t b)
 
 int i = 0;
 
-double desenho0[25] = {
-    0.2, 0.0, 0.2, 0.0, 0.2,
-    0.0, 0.2, 0.2, 0.2, 0.0,
-    0.2, 0.2, 0.2, 0.2, 0.2,
-    0.0, 0.2, 0.2, 0.2, 0.0,
-    0.2, 0.0, 0.2, 0.0, 0.2
-};
-
-void num0(uint8_t r, uint8_t g, uint8_t b){
-    
-    // Define a cor com base nos parâmetros fornecidos
-    uint32_t color = urgb_u32(r, g, b);  
-     // Define todos os LEDs com a cor especificada
-    for (int i = 0; i < NUM_PIXELS; i++)
-    {
-        if (desenho0[i])
-        {
-            put_pixel(color); // Liga o LED com um no buffer
-        }
-        else
-        {
-            put_pixel(0);  // Desliga os LEDs com zero no buffer
-        }
-    }
-    
-}
-
 // Desenho do número 1
 double desenho1[25] = 
-    {0.2, 0.2, 0.2, 0.2, 0.2,
+    {0.0, 0.0, 0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0, 0.0, 0.0,
      0.2, 0.2, 0.2, 0.2, 0.2,
-     0.2, 0.2, 0.2, 0.0, 0.2,
-     0.2, 0.0, 0.2, 0.0, 0.2,
-     0.2, 0.0, 0.0, 0.0, 0.2};
+     0.0, 0.0, 0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0, 0.0, 0.0};
 
 void num1(uint8_t r, uint8_t g, uint8_t b){
     
@@ -217,15 +197,62 @@ void inicia_pinos(){
     gpio_set_dir(BOTAO_B, GPIO_IN);
     gpio_pull_up(BOTAO_B);
 
+    gpio_init(RELE);
+    gpio_set_dir(RELE, GPIO_OUT); 
+    gpio_put(RELE, 0);
 }
-/*void nivel_tanque(){
+// Função para administrar a interrupção gerada pelos botões
+static void gpio_irq_handler(uint gpio, uint32_t events){
+    uint32_t tempo_atual = to_us_since_boot(get_absolute_time());
+    if(tempo_atual - ultimo_tempo > 200000 && !gpio_get(BOTAO_B)){
+        // Se a interrupção é gerada pelo botão B, o estado do relé é alterado em qualquer posição abaixo do limite máximo
+        if(T_x < 2.5){
+            bomba = !bomba;
+        }
+        gpio_put(RELE, bomba);
+        ultimo_tempo = tempo_atual; 
+    } else if(tempo_atual - ultimo_tempo > 200000 && !gpio_get(BOTAO_A)){
+        // Se a interrupção é gerada pelo botão A, os limites mínimo e máximo são resetados aos valores iniciais
+        limite_max = 2.2;
+        limite_min = 1.75;
+        ultimo_tempo = tempo_atual;
+    }
+}
+void nivel_tanque(){
+    if(T_x >= limite_max){
+        // Se o valor está no limite máximo, o relé é desligado e o led verde é aceso
+        gpio_put(RELE, 0);
+        gpio_put(VERDE, 1);
+        gpio_put(VERMELHO, 0);
+        bomba = false;
+     } else if (T_x <= limite_min){
+        // Se o valor está no limite mínimo, o relé é ligado e o led vermelho é aceso
+        gpio_put(RELE, 1);
+        gpio_put(VERDE, 0);
+        gpio_put(VERMELHO, 1);
+        bomba = true;
+     } else if (T_x > limite_min && T_x < limite_max){
+        // Em demais situações, os leds verde e vermelho são acesos e o relé não sofre alterações
+        gpio_put(VERDE, 1);
+        gpio_put(VERMELHO, 1);
+     }
+     
+     if(T_x - T_xanterior > 0.01){
+        num3(0, 100, 0); // Se houver crescimento no nível de água (aumento de tensão), surge uma seta verde para cima na matriz
+     } else if(T_x - T_xanterior < -0.01){
+        num2(100, 0, 0); // Se houver decrescimento no nível de água, surge uma seta vermelha para baixo na matriz
+     } else {
+        num1(100, 100, 0);// Se não houver alteração, é mostrado apenas um traço amarelo horizontal
+     }
 
-
-}*/
+}
 int main()
 {
     inicia_pinos();
     
+    // Ativa a função de interrupção
+    gpio_set_irq_enabled_with_callback(BOTAO_A, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+    gpio_set_irq_enabled_with_callback(BOTAO_B, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
     //Inicializa a arquitetura do cyw43
     while (cyw43_arch_init())
@@ -275,21 +302,29 @@ int main()
     // Define uma função de callback para aceitar conexões TCP de entrada. É um passo importante na configuração de servidores TCP.
     tcp_accept(server, tcp_server_accept);
     printf("Servidor ouvindo na porta 80\n");
+
     while (true) {
         cyw43_arch_poll(); // Necessário para manter o Wi-Fi ativo
         sleep_ms(1000);
         adc_select_input(2); // Seleciona o ADC para eixo X. O pino 28 como entrada analógica
  
      float soma = 0.0f;
-     for (int i = 0; i < 1000; i++)
+     // São somadas 100 amostras do valor do ADC e se calcula uma média dessas amostras
+     for (int i = 0; i < 100; i++)
      {
        soma += adc_read();
        sleep_ms(1);
      }
-     float media = soma / 1000.0f;
+     float media = soma / 100.0f;
  
-     // Fórmula simplificada: R_x = R_conhecido * ADC_encontrado /(ADC_RESOLUTION - adc_encontrado)
-     R_x = (R_conhecido * media) / (ADC_RESOLUTION - media);
+     // Atualiza o valor de T_xanterior antes de calcular um valor mais recente
+     T_xanterior = T_x;
+     // Fórmula para fornecer a tensão lida no divisor de tensão que atualiza o valor de T_x
+     T_x = media * ADC_VREF / ADC_RESOLUTION;  
+
+     //Chama a função que atualiza os parâmetros 
+     nivel_tanque();
+
      ssd1306_fill(&ssd, false);
 
      // Retângulo principal externo
@@ -299,7 +334,6 @@ int main()
      ssd1306_line(&ssd, 5, 19, 123, 19, cor);  // Primeira divisão
      ssd1306_line(&ssd, 5, 33, 123, 33, cor);  // Segunda divisão
      ssd1306_line(&ssd, 5, 47, 123, 47, cor);  // Terceira divisão
-
 
      ssd1306_draw_string(&ssd, "Agua(%): ", 10, 8);
      ssd1306_draw_string(&ssd, "Max|Min: ", 10, 22);

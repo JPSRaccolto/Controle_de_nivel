@@ -15,8 +15,9 @@
 #include "font.h"            //Fonte de palavras a serem escritas no ssd1306
 #include <math.h>
 
-#define WIFI_SSID "NET"
-#define WIFI_PASSWORD "Y54UXJ8Z63"
+#define WIFI_SSID "Galaxy S20 FE 5G"
+#define WIFI_PASSWORD "abcd9700"
+
 
 #define BOTAO_A 5
 #define BOTAO_B 6
@@ -48,9 +49,25 @@ float limite_min = 1.75;
 float limite_max = 2.2;
 static volatile uint32_t ultimo_tempo = 0;
 bool bomba = false;
+bool alerta_cheio_emitido;
+bool alerta_vazio_emitido;
+
 ssd1306_t ssd;
 
 float volume_atual = 0.0;
+
+void atualizar_display_nivel(float tensao, float min, float max); 
+// Inicializa o PWM no pino do buzzer
+void pwm_init_buzzer(uint pin);
+
+// Toca um beep com frequência e duração especificadas
+void beep(uint pin, uint frequency, uint duration_ms);
+
+// Emite alerta de "reservatório cheio"
+void alerta_reservatorio_cheio(uint pin);
+
+// Emite alerta de "reservatório vazio"
+void alerta_reservatorio_vazio(uint pin);
 
 const char HTML_BODY[] =
     "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'><title>Projeto Bomba D'Água</title>"
@@ -457,6 +474,12 @@ void nivel_tanque()
         gpio_put(VERDE, 1);
         gpio_put(VERMELHO, 0);
         bomba = false;
+        
+        if (!alerta_cheio_emitido) {
+            alerta_reservatorio_cheio(buzzer1);
+            alerta_cheio_emitido = true;
+            alerta_vazio_emitido = false;  // Reseta o outro alerta
+        }
     }
     else if (T_x <= limite_min)
     {
@@ -465,6 +488,12 @@ void nivel_tanque()
         gpio_put(VERDE, 0);
         gpio_put(VERMELHO, 1);
         bomba = true;
+        
+        if (!alerta_vazio_emitido) {
+            alerta_reservatorio_vazio(buzzer2);
+            alerta_vazio_emitido = true;
+            alerta_cheio_emitido = false; // Reseta o outro alerta
+        }
     }
     else if (T_x > limite_min && T_x < limite_max)
     {
@@ -489,6 +518,7 @@ void nivel_tanque()
 int main()
 {
     inicia_pinos();
+
 
     // Ativa a função de interrupção
     gpio_set_irq_enabled_with_callback(BOTAO_A, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
@@ -545,25 +575,130 @@ int main()
         T_x = media * ADC_VREF / ADC_RESOLUTION;
 
         // Chama a função que atualiza os parâmetros
+
         nivel_tanque();
+        atualizar_display_nivel(T_x, limite_min, limite_max);
 
-        ssd1306_fill(&ssd, false);
-
-        // Retângulo principal externo
-        ssd1306_rect(&ssd, 5, 5, 123, 59, cor, false);
-
-        // Linhas horizontais para dividir em 4 seções
-        ssd1306_line(&ssd, 5, 19, 123, 19, cor); // Primeira divisão
-        ssd1306_line(&ssd, 5, 33, 123, 33, cor); // Segunda divisão
-        ssd1306_line(&ssd, 5, 47, 123, 47, cor); // Terceira divisão
-
-        ssd1306_draw_string(&ssd, "Agua(%): ", 10, 8);
-        ssd1306_draw_string(&ssd, "Max|Min: ", 10, 22);
-        ssd1306_draw_string(&ssd, "Bomba: ", 10, 36);
-        ssd1306_draw_string(&ssd, "Wifi: ", 10, 50);
-
-        ssd1306_send_data(&ssd);
     }
     cyw43_arch_deinit();
+
+    atualizar_display_nivel(T_x, limite_min, limite_max);
+
     return 0;
+}
+
+
+void atualizar_display_nivel(float tensao, float min, float max) {
+    char nivel_texto[20];
+
+    // Determina o texto do nível de água
+    if (tensao >= max - 0.05) {
+        strcpy(nivel_texto, "NIVEL: CHEIO");
+    } else if (tensao <= min + 0.05) {
+        strcpy(nivel_texto, "NIVEL: BAIXO");
+    } else {
+        strcpy(nivel_texto, "NIVEL: MEDIO");
+    }
+
+    // Limpa o display
+    ssd1306_fill(&ssd, false);
+
+    // Escreve o nível
+    ssd1306_draw_string(&ssd, nivel_texto, 5, 5);
+
+    // Barra de nível
+    int barra_x = 5;
+    int barra_y = 20;
+    int barra_largura = 100;
+    int barra_altura = 15;
+
+    // Retângulo da barra
+    ssd1306_rect(&ssd, barra_y, barra_x, barra_largura, barra_altura, true, false);
+
+    // Calcula preenchimento
+    float porcentagem = (tensao - min) / (max - min);
+    if (porcentagem > 1.0f) porcentagem = 1.0f;
+    if (porcentagem < 0.0f) porcentagem = 0.0f;
+
+    int largura_preenchida = (int)(porcentagem * (barra_largura - 2));
+    for (int i = 0; i < largura_preenchida; i++) {
+        for (int j = 0; j < barra_altura - 2; j++) {
+            ssd1306_pixel(&ssd, barra_x + 1 + i, barra_y + 1 + j, true);
+        }
+    }
+
+    // Mostra tensão
+    char perc_str[20];
+    sprintf(perc_str, "Nivel: %d%%", (int)(porcentagem * 100));
+    ssd1306_draw_string(&ssd, perc_str, 5, 40);
+
+    // Mostra status da bomba
+    if (bomba) {
+        ssd1306_draw_string(&ssd, "BOMBA LIGADA", 5, 52);
+    } else {
+        ssd1306_draw_string(&ssd, "BOMBA DESLIG", 5, 52);
+    }
+
+    // Atualiza o display
+    ssd1306_send_data(&ssd);
+}
+
+//Inicializa o PWM no pino do buzzer
+void pwm_init_buzzer(uint pin) {
+    // Configura o pino como saída PWM
+    gpio_set_function(pin, GPIO_FUNC_PWM);
+
+    // Obtém o número do slice PWM associado ao pino
+    uint slice_num = pwm_gpio_to_slice_num(pin);
+
+    // Configura o PWM com as configurações padrão
+    pwm_config config = pwm_get_default_config();
+    pwm_init(slice_num, &config, true);
+
+    // Inicia o PWM no nível baixo (0)
+    pwm_set_gpio_level(pin, 0);
+}
+
+// Função que emite um som (beep) com uma frequência e duração especificadas
+void beep(uint pin, uint frequency, uint duration_ms) {
+    // Obtém o número do slice PWM associado ao pino
+    uint slice_num = pwm_gpio_to_slice_num(pin);
+
+    // Calcula a frequência do clock do sistema
+    uint32_t clock_freq = clock_get_hz(clk_sys);
+    // Calcula o divisor de clock necessário
+    float divider = (float)clock_freq / (float)(frequency * 4096);
+    // Define o divisor de clock para o slice PWM
+    pwm_set_clkdiv(slice_num, divider);
+
+    // Calcula o valor de 'top' baseado na frequência desejada
+    uint32_t top = clock_freq / (frequency * divider) - 1;
+
+    // Configura o valor de 'top' no PWM e ajusta o duty cycle para 50% (ativo)
+    pwm_set_wrap(slice_num, top);
+    pwm_set_gpio_level(pin, top / 2);
+
+    // Aguarda pelo tempo de duração do beep
+    sleep_ms(duration_ms);
+
+    // Desativa o sinal PWM (duty cycle 0)
+    pwm_set_gpio_level(pin, 0);
+
+    // Pausa de 50ms entre os beeps
+    sleep_ms(50);
+}
+
+// Alerta para reservatório cheio: dois beeps suaves
+void alerta_reservatorio_cheio(uint pin) {
+    beep(pin, 600, 150);  // Beep médio-suave
+    sleep_ms(100);
+    beep(pin, 800, 150);  // Beep um pouco mais agudo
+}
+
+// Alerta para reservatório vazio: cinco beeps agudos e rápidos
+void alerta_reservatorio_vazio(uint pin) {
+    for (int i = 0; i < 5; i++) {
+        beep(pin, 1000, 200);  // Beep agudo e curto
+        sleep_ms(100);         // Pausa curta entre os beeps
+    }
 }

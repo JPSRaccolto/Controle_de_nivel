@@ -15,6 +15,7 @@
 #include "font.h"            //Fonte de palavras a serem escritas no ssd1306
 #include <math.h>
 
+
 #define WIFI_SSID "Galaxy S20 FE 5G"
 #define WIFI_PASSWORD "abcd9700"
 
@@ -44,8 +45,12 @@ float R_x = 0.0;           // Resistor desconhecido
 float T_x = 0.0;           // Tensão no potenciômetro
 float T_xanterior = 0.0;   // Valor passado da tensão no potenciômetro
 float ADC_VREF = 3.31;     // Tensão de referência do ADC
+float porcentagem;          // Porcentagem de volume
 int ADC_RESOLUTION = 4095; // Resolução do ADC (12 bits)
 float limite_min = 1.75;
+float limite_min_display=1.75;
+float limite_max_display=2.2;
+
 float limite_max = 2.2;
 static volatile uint32_t ultimo_tempo = 0;
 bool bomba = false;
@@ -68,89 +73,37 @@ void alerta_reservatorio_cheio(uint pin);
 
 // Emite alerta de "reservatório vazio"
 void alerta_reservatorio_vazio(uint pin);
-
 const char HTML_BODY[] =
-    "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'><title>Projeto Bomba D'Água</title>"
-    "<style>"
-    "body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f4f4; }"
-    ".container { text-align: center; padding: 30px; background-color: #fff; border-radius: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); width: 450px; }"
-    "h1 { margin-bottom: 30px; font-family: Arial, sans-serif; color: #000000; font-size: 1.8rem; }"
-    ".icones { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; }"
-    //"#estado, #quantidade { width: 140px; height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-radius: 15px; font-size: 2.5rem; color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4); }"
-    //"#estado-val, #quantidade_val { color: white; font-size: 2.5rem; font-family: Arial, sans-serif; }"
-    //"#estado { background-color: green; font-size: 2rem; }"
-    //"#estado.off { background-color: red; }"
-    //"#quantidade { background-color: #0138ff; font-size: 2rem; }"
-    // ".titulo-icone { font-size: 1.2rem; font-weight: bold; color: white; margin-bottom: 10px; }"
-    // "#minimo, #maximo { background-color: #eeeeee; padding: 12px 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); margin-top: 15px; font-size: 1.4rem; font-family: Arial, sans-serif; color: #333; font-weight: bold; }"
-    // "label { font-size: 1.2rem; color: #333; font-weight: bold; display: block; margin-bottom: 10px; }"
-    // ".slider-container { display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 20px; }"
-    // "input[type='range'] { width: 80%; margin-top: 10px; -webkit-appearance: none; appearance: none; height: 8px; background: #ddd; border-radius: 5px; outline: none; transition: background 0.3s; }"
-    // "input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #4CAF50; border-radius: 50%; cursor: pointer; }"
-    // "input[type='range']:hover { background: #ccc; }"
-    // "input[type='range']:active::-webkit-slider-thumb { background: #45a049; }"
-    // "span { font-size: 1.2rem; font-weight: normal; margin-left: 10px; }"
-    "</style>"
-
-    "<script>"
-    "function sendCommandMinimun(cmd) { fetch('/minimun/' + cmd); }"
-    "function sendCommandMaximun(cmd) { fetch('/maximun/' + cmd); }"
-    "document.addEventListener('DOMContentLoaded', function () {"
-    "  const minimoSlider = document.getElementById('minimo');"
-    "  const maximoSlider = document.getElementById('maximo');"
-    "  minimoSlider.addEventListener('input', function () {"
-    "    const valor = this.value;"
-    "    document.getElementById('minimo-val').textContent = valor + '%';"
-    "    sendCommandMinimun(valor);"
-    "  });"
-    "  maximoSlider.addEventListener('input', function () {"
-    "    const valor = this.value;"
-    "    document.getElementById('maximo-val').textContent = valor + '%';"
-    "    sendCommandMaximun(valor);"
-    "  });"
-    "});"
-    "function atualizar() {"
-    "  fetch('/estado')"
-    "    .then(res => res.json())"
-    "    .then(data => {"
-    "      const estadoEl = document.getElementById('estado');"
-    "      const estadoVal = document.getElementById('estado-val');"
-    "      if (data.estado) {"
-    "        estadoVal.innerText = 'ON';"
-    "        estadoEl.classList.remove('off');"
-    "      } else {"
-    "        estadoVal.innerText = 'OFF';"
-    "        estadoEl.classList.add('off');"
-    "      }"
-    "      document.getElementById('quantidade-val').innerText = data.quantidade;"
-    "    });"
-    "}"
-    "setInterval(atualizar, 1000);"
-    "</script></head>"
-
-    "<body>"
-    "<div class='container'>"
-    "  <h1>Sistema Bomba D'Água</h1>"
-    "  <div class='icones'>"
-    "    <div id='estado'>"
-    "      <div class='titulo-icone'>Bomba</div>"
-    "      <label for='state'><span id='estado-val'>ON</span></label>"
-    "    </div>"
-    "    <div id='quantidade'>"
-    "      <div class='titulo-icone'>Nível da Água</div>"
-    "      <label for='quantity'><span id='quantidade-val'>--%</span></label>"
-    "    </div>"
-    "  </div>"
-    "  <div class='slider-container'>"
-    "    <label for='minimo'>Mínimo: <span id='minimo-val'>0%</span></label>"
-    "    <input type='range' id='minimo' min='0' max='100' value='0'>"
-    "  </div>"
-    "  <div class='slider-container'>"
-    "    <label for='maximo'>Máximo: <span id='maximo-val'>100%</span></label>"
-    "    <input type='range' id='maximo' min='0' max='100' value='100'>"
-    "  </div>"
-    "</div>"
-    "</body></html>";
+"<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Controle da Bomba</title>"
+"<script>"
+"function atualizar() {"
+"  fetch('/estado')"
+"    .then(res => res.json())"
+"    .then(data => {"
+"      document.getElementById('estado-val').innerText = data.estado ? 'ON' : 'OFF';"
+"      document.getElementById('nivel-val').innerText = data.quantidade;"
+"    });"
+"}"
+"setInterval(atualizar, 1000);"
+"</script></head><body>"
+"<h1>Status da Bomba d'Água</h1>"
+"<p>Bomba: <strong id='estado-val'>---</strong></p>"
+"<p>Nível do reservatório: <strong id='nivel-val'>---</strong></p>"
+"<hr>"
+"<p>Definir limite mínimo (0 a 100):</p>"
+"<input type='number' id='minimoInput'><button onclick='enviarMin()'>Atualizar Mínimo</button>"
+"<p>Definir limite máximo (0 a 100):</p>"
+"<input type='number' id='maximoInput'><button onclick='enviarMax()'>Atualizar Máximo</button>"
+"<script>"
+"function enviarMin() {"
+"  var val = document.getElementById('minimoInput').value;"
+"  fetch('/minimun/' + val);"
+"}"
+"function enviarMax() {"
+"  var val = document.getElementById('maximoInput').value;"
+"  fetch('/maximun/' + val);"
+"}"
+"</script></body></html>";
 
 struct http_state
 {
@@ -189,15 +142,13 @@ static err_t http_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t er
     }
     hs->sent = 0;
 
-    if (strstr(req, "GET /minimun/"))
-    {
-        int valor = atoi(strstr(req, "/minimun/") + strlen("/minimun/"));
-        float nova_tensao = (valor / 100.0f) * ADC_VREF;
-
-        if (nova_tensao < limite_max)
+        if (strstr(req, "GET /minimun/"))
         {
-            limite_min = nova_tensao;
-        }
+            int valor = atoi(strstr(req, "/minimun/") + strlen("/minimun/"));
+            float nova_porc = valor / 100.0f;
+            if (nova_porc >= 0.0f && nova_porc < (limite_max / ADC_VREF)) {
+                limite_min = 1.75+(nova_porc * 0.45);
+            }
 
         const char *msg = "Minimo atualizado";
         hs->len = snprintf(hs->response, sizeof(hs->response),
@@ -209,15 +160,17 @@ static err_t http_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t er
                            "%s",
                            (int)strlen(msg), msg);
     }
-    else if (strstr(req, "GET /maximun/"))
-    {
-        int valor = atoi(strstr(req, "/maximun/") + strlen("/maximun/"));
-        float nova_tensao = (valor / 100.0f) * ADC_VREF;
-
-        if (nova_tensao > limite_min)
+        else if (strstr(req, "GET /maximun/"))
         {
-            limite_max = nova_tensao;
-        }
+            int valor = atoi(strstr(req, "/maximun/") + strlen("/maximun/"));
+            float nova_porc = valor / 100.0f;
+            float novo_limite = 1.75 + (nova_porc * 0.45);  // mesmo cálculo do mínimo
+            if (novo_limite > limite_min && novo_limite <= 2.2) {
+                limite_max = novo_limite;
+            }
+
+
+
 
         const char *msg = "Maximo atualizado";
         hs->len = snprintf(hs->response, sizeof(hs->response),
@@ -229,25 +182,25 @@ static err_t http_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t er
                            "%s",
                            (int)strlen(msg), msg);
     }
-    else if (strstr(req, "GET /estado"))
-    {
-        volume_atual = ((T_x * 100) / 3.3);
+else if (strstr(req, "GET /estado"))
+{
+    int porcentagem_site = porcentagem*100;
+    char json_payload[96];
+    int json_len = snprintf(json_payload, sizeof(json_payload),
+                            "{\"estado\":%d,\"quantidade\":%d}",
+                            bomba, porcentagem_site);
 
-        char json_payload[96];
-        int json_len = snprintf(json_payload, sizeof(json_payload),
-                                "{\"estado\":%d,\"quantidade\":%d}\r\n",
-                                bomba, volume_atual);
+    printf("[DEBUG] JSON: %s\n", json_payload);
 
-        printf("[DEBUG] JSON: %s\n", json_payload);
-        hs->len = snprintf(hs->response, sizeof(hs->response),
-                           "HTTP/1.1 200 OK\r\n"
-                           "Content-Type: application/json\r\n"
-                           "Content-Length: %d\r\n"
-                           "Connection: close\r\n"
-                           "\r\n"
-                           "%s",
-                           json_len, json_payload);
-    }
+    hs->len = snprintf(hs->response, sizeof(hs->response),
+                       "HTTP/1.1 200 OK\r\n"
+                       "Content-Type: application/json\r\n"
+                       "Content-Length: %d\r\n"
+                       "Connection: close\r\n"
+                       "\r\n"
+                       "%s",
+                       json_len, json_payload);
+}
     else
     {
         hs->len = snprintf(hs->response, sizeof(hs->response),
@@ -577,8 +530,8 @@ int main()
         // Chama a função que atualiza os parâmetros
 
         nivel_tanque();
+        atualizar_display_nivel(T_x, limite_min_display, limite_max_display);
         atualizar_display_nivel(T_x, limite_min, limite_max);
-
     }
     cyw43_arch_deinit();
 
@@ -587,6 +540,8 @@ int main()
     return 0;
 }
 
+
+//CANARIO CANARIO CANARIO
 
 void atualizar_display_nivel(float tensao, float min, float max) {
     char nivel_texto[20];
@@ -616,7 +571,7 @@ void atualizar_display_nivel(float tensao, float min, float max) {
     ssd1306_rect(&ssd, barra_y, barra_x, barra_largura, barra_altura, true, false);
 
     // Calcula preenchimento
-    float porcentagem = (tensao - min) / (max - min);
+     porcentagem = (tensao - min) / (max - min);
     if (porcentagem > 1.0f) porcentagem = 1.0f;
     if (porcentagem < 0.0f) porcentagem = 0.0f;
 

@@ -531,7 +531,7 @@ int main()
 
         nivel_tanque();
         atualizar_display_nivel(T_x, limite_min_display, limite_max_display);
-
+        atualizar_display_nivel(T_x, limite_min, limite_max);
     }
     cyw43_arch_deinit();
 

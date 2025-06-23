@@ -77,11 +77,11 @@ Este projeto utiliza a Raspberry Pi Pico W para automatizar o controle de um res
 ├── controle_nivel.c        # Código principal da aplicação, lógica de controle e MQTT
 ├── CMakeLists.txt        # Arquivo de configuração de compilação do projeto
 └── lib/
-│   ├── ssd1306.c         # Driver para o controle do display OLED
-│   ├── ssd1306.h         # Header do driver do display
-│   ├── font.h            # Dados da fonte para exibição de caracteres no display
-│   ├── ws2812.pio.h         # Código PIO para a matriz de LEDs WS2812
-│   └── lwipopts.h           # Configurações da pilha de rede lwIP
+   ├── ssd1306.c         # Driver para o controle do display OLED
+   ├── ssd1306.h         # Header do driver do display
+   ├── font.h            # Dados da fonte para exibição de caracteres no display
+   ├── ws2812.pio.h         # Código PIO para a matriz de LEDs WS2812
+   └── lwipopts.h           # Configurações da pilha de rede lwIP
 └── ...               # Demais arquivos de configuração de rede
 
 

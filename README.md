@@ -125,7 +125,7 @@ Sistema de controle de nível que utiliza uma Raspberry Pi Pico W para monitorar
 ## 🤝 Contribuições
 
 Este projeto foi desenvolvido por **João Pedro Soares Raccolto**,**Nivaldo Rodrigues da Silva Júnior**,
-**Rian de Sena Mendes**,
+**Rian de Sena Mendes**
 e **Samuel Guedes Canário**. Contribuições são bem-vindas! Siga os passos abaixo para contribuir:
 
 1.  Faça um Fork deste repositório.

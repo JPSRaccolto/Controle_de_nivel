@@ -74,6 +74,7 @@ Este projeto utiliza a Raspberry Pi Pico W para automatizar o controle de um res
 - **PIO (Programmable I/O):** Controle da matriz de LEDs WS2812.
 
 ## 📂 Estrutura do código
+
 ├── controle_nivel.c         # Código principal do projeto
 ├── CMakeLists.txt           # Arquivo de configuração de compilação do projeto
 ├── lib/
@@ -111,8 +112,7 @@ Este projeto utiliza a Raspberry Pi Pico W para automatizar o controle de um res
 6.  Coloque a Raspberry Pi Pico em modo **BOOTSEL** e utilize o ícone de **Run** para carregar o programa na placa.
 7.  Interaja com os botões e acesse o IP do dispositivo (exibido no terminal serial) para explorar todas as funcionalidades.
 
-## 🧑‍💻 Autor
-Este projeto foi desenvolvido por:
+## 🧑‍💻 Autores
 **João Pedro Soares Raccolto**,
 **Nivaldo Rodrigues da Silva Júnior**,
 **Rian de Sena Mendes**
@@ -124,7 +124,9 @@ Sistema de controle de nível que utiliza uma Raspberry Pi Pico W para monitorar
 
 ## 🤝 Contribuições
 
-Este projeto foi desenvolvido por **João Pedro Soares Raccolto**. Contribuições são bem-vindas! Siga os passos abaixo para contribuir:
+Este projeto foi desenvolvido por **João Pedro Soares Raccolto**,**Nivaldo Rodrigues da Silva Júnior**,
+**Rian de Sena Mendes**,
+e **Samuel Guedes Canário**. Contribuições são bem-vindas! Siga os passos abaixo para contribuir:
 
 1.  Faça um Fork deste repositório.
 2.  Crie uma nova branch:
@@ -143,7 +145,7 @@ Este projeto foi desenvolvido por **João Pedro Soares Raccolto**. Contribuiçõ
 
 ## 📽️ Demonstração em Vídeo
 
-- Um vídeo de demonstração do projeto pode ser disponibilizado aqui. (https://drive.google.com/drive/folders/1JETavgzeSnB6-2uaEOxAcaWOotPkdZKv?usp=sharing)
+- Um vídeo de demonstração do projeto pode ser disponibilizado aqui: [Link para o vídeo](https://drive.google.com/drive/folders/1JETavgzeSnB6-2uaEOxAcaWOotPkdZKv?usp=sharing)
 
 ## 💡 Considerações Finais
 

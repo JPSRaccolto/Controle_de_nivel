@@ -113,10 +113,10 @@ Este projeto utiliza a Raspberry Pi Pico W para automatizar o controle de um res
 7.  Interaja com os botões e acesse o IP do dispositivo (exibido no terminal serial) para explorar todas as funcionalidades.
 
 ## 🧑‍💻 Autores
-**João Pedro Soares Raccolto**,
-**Nivaldo Rodrigues da Silva Júnior**,
-**Rian de Sena Mendes**
-**Samuel Guedes Canário**
+- **João Pedro Soares Raccolto**,
+- **Nivaldo Rodrigues da Silva Júnior**,
+- **Rian de Sena Mendes**
+- **Samuel Guedes Canário**
 
 ## 📝 Descrição
 
